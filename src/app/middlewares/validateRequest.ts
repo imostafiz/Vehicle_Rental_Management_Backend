@@ -11,7 +11,6 @@ export const validateRequest = (schema: ObjectSchema): RequestHandler => {
 
     if (error) {
       const details = error.details.map((d) => d.message);
-      return next(new ApiError(400, 'Validation failed', details));
     }
 
     req.body = value;
