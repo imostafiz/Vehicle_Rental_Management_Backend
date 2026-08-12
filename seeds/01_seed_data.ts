@@ -8,6 +8,7 @@ export async function seed(knex: Knex): Promise<void> {
   await knex('vehicles').del();
   await knex('staff').del();
 
+  //Hass the password for the admin user
   const passwordHash = await bcrypt.hash('admin123', 10);
 
   const [staffId] = await knex('staff')
