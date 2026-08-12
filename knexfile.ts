@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '.env') });
 const baseConfig: Knex.Config = {
   client: 'pg',
   connection: {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT) || 5432,
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
