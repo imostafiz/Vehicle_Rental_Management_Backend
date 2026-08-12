@@ -46,7 +46,7 @@ export const getAllVehicles = catchAsync(async (req: Request, res: Response) => 
 
   sendResponse(res, {
     statusCode: 200,
-    // message: 'Vehicles retrieved successfully.',
+    message: 'Vehicles retrieved successfully.',
     meta: {
       page: result.meta.page,
       limit: result.meta.limit,
