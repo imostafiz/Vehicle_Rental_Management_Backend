@@ -3,6 +3,7 @@ import path from 'path';
 import multer from 'multer';
 import { randomBytes } from 'crypto';
 import config from '../config';
+import { ApiError } from '../app/errors/ApiError';
 
 const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -34,7 +35,7 @@ export const fileUploader = multer({
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error(`Only image files are allowed: ${allowedMimeTypes.join(', ')}`));
+      cb(new ApiError(400, `Only image files are allowed: ${allowedMimeTypes.join(', ')}`));
     }
   },
 });

@@ -8,16 +8,16 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
+const server: Server = app.listen(config.port, () => {
+  console.log(`Server running on http://localhost:${config.port} (${config.env})`);
+});
+
 process.on('unhandledRejection', (reason) => {
   console.error('UNHANDLED REJECTION. Shutting down...');
   console.error(reason);
   server.close(() => {
     process.exit(1);
   });
-});
-
-const server: Server = app.listen(config.port, () => {
-  console.log(`Server running on http://localhost:${config.port} (${config.env})`);
 });
 
 process.on('SIGTERM', () => {

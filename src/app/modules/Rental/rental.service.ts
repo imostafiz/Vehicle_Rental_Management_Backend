@@ -53,9 +53,25 @@ const OVERLAP_SQL = `
     AND end_date >= ?::date
 `;
 
-export const calcRentalDays = (startDate: string, endDate: string): number => {
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
+export const toDateString = (value: string | Date): string => {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new ApiError(400, 'Invalid date format.');
+    }
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new ApiError(400, 'Invalid date format.');
+  }
+  return value;
+};
+
+export const calcRentalDays = (startDate: string | Date, endDate: string | Date): number => {
+  const start = new Date(`${toDateString(startDate)}T00:00:00`);
+  const end = new Date(`${toDateString(endDate)}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     throw new ApiError(400, 'Invalid date format.');
   }
@@ -68,9 +84,9 @@ export const calcRentalDays = (startDate: string, endDate: string): number => {
 };
 
 const ensureRentalDatesValid = (
-  startDate?: string,
-  endDate?: string,
-  existing?: { start_date: string; end_date: string },
+  startDate?: string | Date,
+  endDate?: string | Date,
+  existing?: { start_date: string | Date; end_date: string | Date },
 ): void => {
   const start = startDate ?? existing?.start_date;
   const end = endDate ?? existing?.end_date;
@@ -162,7 +178,9 @@ const checkOverlap = async (
 };
 
 export const createRentalService = async (data: IRentalCreateData): Promise<IRentalRow> => {
-  const days = calcRentalDays(data.start_date, data.end_date);
+  const startDate = toDateString(data.start_date);
+  const endDate = toDateString(data.end_date);
+  const days = calcRentalDays(startDate, endDate);
 
   const result = await db.transaction(async (trx) => {
     const locked = await trx('vehicles')
@@ -176,7 +194,7 @@ export const createRentalService = async (data: IRentalCreateData): Promise<IRen
       throw new ApiError(404, 'Vehicle not found or has been deleted.');
     }
 
-    await checkOverlap(trx, data.vehicle_id, data.start_date, data.end_date);
+    await checkOverlap(trx, data.vehicle_id, startDate, endDate);
 
     const totalAmount = Number(locked.daily_rate) * days;
 
@@ -185,8 +203,8 @@ export const createRentalService = async (data: IRentalCreateData): Promise<IRen
         vehicle_id: data.vehicle_id,
         customer_name: data.customer_name,
         customer_phone: data.customer_phone,
-        start_date: data.start_date,
-        end_date: data.end_date,
+        start_date: startDate,
+        end_date: endDate,
         total_amount: String(totalAmount),
         status: 'booked',
       })
@@ -205,17 +223,21 @@ export const updateRentalService = async (
   const existing = await getRentalByIdService(id);
 
   const newVehicleId = data.vehicle_id ?? existing.vehicle_id;
-  const newStartDate = data.start_date ?? existing.start_date;
-  const newEndDate = data.end_date ?? existing.end_date;
+  const newStartDate = toDateString(data.start_date ?? existing.start_date);
+  const newEndDate = toDateString(data.end_date ?? existing.end_date);
   const newStatus = data.status ?? existing.status;
 
   ensureRentalDatesValid(data.start_date, data.end_date, existing);
 
-  if (
-    (data.vehicle_id && data.vehicle_id !== existing.vehicle_id) ||
-    (data.start_date && data.start_date !== existing.start_date) ||
-    (data.end_date && data.end_date !== existing.end_date)
-  ) {
+  const datesChanged =
+    (data.vehicle_id !== undefined && data.vehicle_id !== existing.vehicle_id) ||
+    (data.start_date !== undefined && newStartDate !== toDateString(existing.start_date)) ||
+    (data.end_date !== undefined && newEndDate !== toDateString(existing.end_date));
+
+  const becameActive =
+    !ACTIVE_STATUSES.includes(existing.status) && ACTIVE_STATUSES.includes(newStatus);
+
+  if (datesChanged || becameActive) {
     const days = calcRentalDays(newStartDate, newEndDate);
 
     const result = await db.transaction(async (trx) => {
@@ -232,12 +254,12 @@ export const updateRentalService = async (
 
       await checkOverlap(trx, newVehicleId, newStartDate, newEndDate, id);
 
-      const totalAmount = Number(locked.daily_rate) * days;
+      const totalAmount = datesChanged ? Number(locked.daily_rate) * days : existing.total_amount;
 
       const [rental] = await trx<IRentalRow>('rentals')
         .where({ id })
         .update({
-          vehicle_id: newVehicleId,
+          ...(data.vehicle_id !== undefined && { vehicle_id: newVehicleId }),
           start_date: newStartDate,
           end_date: newEndDate,
           total_amount: String(totalAmount),

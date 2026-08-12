@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 import { ApiError } from '../errors/ApiError';
 import config from '../../config';
 
@@ -32,6 +33,9 @@ export const globalErrorHandler = (
     statusCode = err.statusCode;
     message = err.message;
     details = err.details;
+  } else if (err instanceof multer.MulterError) {
+    statusCode = 400;
+    message = err.message;
   } else if (isPgError(err) && err.code && POSTGRES_ERROR_MESSAGES[err.code]) {
     statusCode = 409;
     message = POSTGRES_ERROR_MESSAGES[err.code](err);

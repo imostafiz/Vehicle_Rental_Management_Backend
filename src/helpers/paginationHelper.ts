@@ -1,5 +1,3 @@
-import config from '../config';
-
 export interface IPaginationOptions {
   page: number;
   limit: number;
@@ -43,5 +41,3 @@ export const calculatePagination = (
     totalPages,
   };
 };
-
-export { config };
